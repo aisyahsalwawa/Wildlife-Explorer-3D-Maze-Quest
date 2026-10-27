@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Wildlife Explorer: 3D Maze Quest (Year 5 English)</title>
+    <!-- Tailwind CSS for UI Overlay -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            background-color: #0f172a;
+        }
+        #game-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .ui-shadow {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+        }
+        /* Virtual Joystick Styling */
+        #joystick-zone {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.25);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            touch-action: none;
+            display: block;
+            z-index: 30;
+        }
+        #joystick-knob {
+            position: absolute;
+            top: 35px;
+            left: 35px;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            pointer-events: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        #action-btn-mobile {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            width: 84px;
+            height: 84px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            font-weight: 800;
+            font-size: 14px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+            border: 3px solid #fff;
+            touch-action: manipulation;
+            z-index: 30;
+        }
+        /* Touch Directional Controls Overlay */
+        #dpad-container {
+            position: absolute;
+            bottom: 30px;
+            left: 170px;
+            display: grid;
+            grid-template-columns: repeat(3, 48px);
+            grid-template-rows: repeat(3, 48px);
+            gap: 4px;
+            z-index: 30;
+        }
+        .dpad-btn {
+            background: rgba(245, 158, 11, 0.85);
+            border: 2px solid #fff;
+            border-radius: 10px;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            touch-action: manipulation;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+        }
+        .dpad-btn:active {
+            background: rgba(217, 119, 6, 1);
+        }
+        /* Glassmorphism background */
+        .glass {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white select-none">
+
+    <!-- 3D Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Start / Intro Screen Overlay -->
+    <div id="start-screen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+        <div class="max-w-xl w-full glass rounded-3xl p-6 sm:p-8 text-center ui-shadow border border-amber-500/30">
+            <div class="inline-block p-4 bg-amber-500/20 rounded-2xl mb-4 border border-amber-500/40">
+                <span class="text-5xl">🐱🐾</span>
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-amber-400 mb-2">Wildlife Explorer 3D</h1>
+            <p class="text-slate-300 text-sm sm:text-base mb-6">
+                Guide your orange Maine Coon cat through the wild animal maze! Unlock four animal gates by answering Year 5 vocabulary & verb questions to win the Golden Trophy!
+            </p>
+
+            <div class="grid grid-cols-2 gap-3 text-left bg-slate-800/60 p-4 rounded-xl mb-6 text-xs sm:text-sm border border-slate-700">
+                <div>
+                    <span class="font-bold text-amber-400 block mb-1">💻 Desktop Controls:</span>
+                    • <span class="bg-slate-700 px-1.5 py-0.5 rounded text-xs">WASD</span> / <span class="bg-slate-700 px-1.5 py-0.5 rounded text-xs">Arrows</span> : Move<br>
+                    • <span class="bg-slate-700 px-1.5 py-0.5 rounded text-xs">E</span> / <span class="bg-slate-700 px-1.5 py-0.5 rounded text-xs">Space</span> : Interact<br>
+                    • <span class="bg-slate-700 px-1.5 py-0.5 rounded text-xs">Camera</span> : Auto Follows Cat
+                </div>
+                <div>
+                    <span class="font-bold text-amber-400 block mb-1">📱 Mobile Controls:</span>
+                    • Left Joystick: Move Cat<br>
+                    • Tap <span class="text-amber-400 font-bold">"INTERACT"</span> Button near gates
+                </div>
+            </div>
+
+            <button id="start-btn" class="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-slate-950 font-extrabold text-lg rounded-2xl transition transform active:scale-95 shadow-lg shadow-amber-500/30">
+                START ADVENTURE 🚀
+            </button>
+        </div>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hud" class="fixed top-4 left-4 right-4 z-10 flex flex-wrap justify-between items-center pointer-events-none">
+        <!-- Objective Card -->
+        <div class="glass px-4 py-2.5 rounded-2xl border border-amber-500/30 text-xs sm:text-sm flex items-center space-x-3 pointer-events-auto">
+            <span class="text-2xl">🦁</span>
+            <div>
+                <div class="text-slate-400 text-[10px] uppercase tracking-wider font-semibold">Current Mission</div>
+                <div id="objective-text" class="font-bold text-amber-300">Find Gate 1: Bear Sanctuary</div>
+            </div>
+        </div>
+
+        <!-- Progress Counter -->
+        <div class="glass px-4 py-2.5 rounded-2xl border border-amber-500/30 text-xs sm:text-sm flex items-center space-x-3 pointer-events-auto mt-2 sm:mt-0">
+            <div class="flex space-x-1" id="gate-badges">
+                <span id="badge-0" class="px-2 py-1 bg-slate-800 text-slate-500 rounded-lg text-xs font-bold border border-slate-700">🐻 Bear</span>
+                <span id="badge-1" class="px-2 py-1 bg-slate-800 text-slate-500 rounded-lg text-xs font-bold border border-slate-700">🦁 Lion</span>
+                <span id="badge-2" class="px-2 py-1 bg-slate-800 text-slate-500 rounded-lg text-xs font-bold border border-slate-700">🦒 Giraffe</span>
+                <span id="badge-3" class="px-2 py-1 bg-slate-800 text-slate-500 rounded-lg text-xs font-bold border border-slate-700">🐆 Cheetah</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive Prompt Banner -->
+    <div id="interact-prompt" class="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-20 hidden pointer-events-none">
+        <div class="bg-amber-500 text-slate-950 font-extrabold px-6 py-2.5 rounded-full shadow-lg text-sm sm:text-base animate-bounce flex items-center space-x-2 border-2 border-white">
+            <span>🐾 Press <span class="bg-slate-950 text-amber-400 px-2 py-0.5 rounded">E</span> or Tap Button to Unlock Gate!</span>
+        </div>
+    </div>
+
+    <!-- Challenge Modal (Questions) -->
+    <div id="question-modal" class="fixed inset-0 z-40 hidden flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+        <div class="max-w-lg w-full glass rounded-3xl p-6 sm:p-8 ui-shadow border border-amber-500/40 relative">
+            <!-- Animal Icon & Title -->
+            <div class="flex items-center space-x-3 mb-4">
+                <span id="modal-animal-icon" class="text-4xl">🐻</span>
+                <div>
+                    <h2 id="modal-animal-title" class="text-xl font-bold text-amber-400">Bear Section Gate</h2>
+                    <p class="text-xs text-slate-400">Year 5 English: Vocabulary & Action Verbs</p>
+                </div>
+            </div>
+
+            <!-- Question Box -->
+            <div class="bg-slate-800/80 p-4 rounded-2xl border border-slate-700 mb-5">
+                <p id="question-text" class="text-sm sm:text-base font-medium text-slate-100 leading-relaxed whitespace-pre-line">
+                    Loading question...
+                </p>
+            </div>
+
+            <!-- Confidence Rating -->
+            <div class="mb-4">
+                <label class="block text-xs font-semibold text-slate-400 mb-1">How confident are you with your answer?</label>
+                <div class="grid grid-cols-3 gap-2" id="confidence-group">
+                    <button type="button" data-conf="Sure" onclick="setConfidence('Sure', this)" class="conf-btn py-1.5 bg-amber-500 text-slate-950 hover:bg-amber-400 rounded-xl text-xs font-semibold border border-amber-500">Confident 👍</button>
+                    <button type="button" data-conf="Unsure" onclick="setConfidence('Unsure', this)" class="conf-btn py-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs text-slate-300 font-semibold border border-slate-700">Somewhat Sure 🤔</button>
+                    <button type="button" data-conf="Guess" onclick="setConfidence('Guess', this)" class="conf-btn py-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs text-slate-300 font-semibold border border-slate-700">Guessing 🎲</button>
+                </div>
+            </div>
+
+            <!-- Options Grid -->
+            <div id="options-container" class="space-y-2.5 mb-5">
+                <!-- Options populated dynamically -->
+            </div>
+
+            <!-- Hint Box & Actions -->
+            <div class="flex items-center justify-between border-t border-slate-800 pt-4">
+                <button id="hint-btn" class="text-xs text-amber-400 hover:underline flex items-center space-x-1">
+                    <span>💡 Need a hint?</span>
+                </button>
+                <div id="hint-text" class="text-xs text-slate-400 italic hidden max-w-xs text-right"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Modal (Correct / Incorrect) -->
+    <div id="feedback-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+        <div class="max-w-md w-full glass rounded-3xl p-6 text-center ui-shadow border border-slate-700">
+            <div id="feedback-icon" class="text-6xl mb-3">🎉</div>
+            <h3 id="feedback-title" class="text-2xl font-bold mb-2 text-emerald-400">Awesome Job!</h3>
+            <p id="feedback-body" class="text-sm text-slate-300 mb-6">You unlocked the gate!</p>
+            <button id="feedback-close-btn" class="w-full py-3 bg-amber-500 text-slate-950 font-bold rounded-xl hover:bg-amber-400 transition">
+                Continue Quest 🐾
+            </button>
+        </div>
+    </div>
+
+    <!-- Victory Screen Modal -->
+    <div id="victory-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+        <div class="max-w-xl w-full glass rounded-3xl p-8 text-center ui-shadow border-2 border-amber-400">
+            <div class="text-6xl mb-3 animate-bounce">🏆</div>
+            <h2 class="text-3xl font-black text-amber-400 mb-1">MAZE QUEST COMPLETED!</h2>
+            <p class="text-slate-300 text-sm mb-6">Congratulations! Your Maine Coon cat has conquered all 4 Wildlife Sections!</p>
+
+            <!-- Learning Dashboard Summary -->
+            <div class="bg-slate-800/80 p-5 rounded-2xl border border-slate-700 text-left mb-6 space-y-3">
+                <h4 class="font-bold text-amber-300 text-sm border-b border-slate-700 pb-2">📊 Learning Performance Report</h4>
+                <div class="flex justify-between text-xs sm:text-sm text-slate-300">
+                    <span>Total Gates Unlocked:</span>
+                    <span class="font-bold text-white">4 / 4</span>
+                </div>
+                <div class="flex justify-between text-xs sm:text-sm text-slate-300">
+                    <span>First-Try Accuracy:</span>
+                    <span id="stat-accuracy" class="font-bold text-emerald-400">100%</span>
+                </div>
+                <div class="flex justify-between text-xs sm:text-sm text-slate-300">
+                    <span>Hints Used:</span>
+                    <span id="stat-hints" class="font-bold text-amber-400">0</span>
+                </div>
+                <div class="text-xs text-slate-400 pt-2 border-t border-slate-700/50">
+                    * Results are based on Year 5 English Wildlife Vocabulary & Action Verbs mastery.
+                </div>
+            </div>
+
+            <button onclick="location.reload()" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold rounded-2xl shadow-lg transition">
+                PLAY AGAIN 🔄
+            </button>
+        </div>
+    </div>
+
+    <!-- Mobile Touch Controls overlay -->
+    <div id="joystick-zone">
+        <div id="joystick-knob"></div>
+    </div>
+    <div id="dpad-container">
+        <div></div>
+        <button id="dpad-up" class="dpad-btn">▲</button>
+        <div></div>
+        <button id="dpad-left" class="dpad-btn">◀</button>
+        <div></div>
+        <button id="dpad-right" class="dpad-btn">▶</button>
+        <div></div>
+        <button id="dpad-down" class="dpad-btn">▼</button>
+        <div></div>
+    </div>
+    <button id="action-btn-mobile">INTERACT</button>
+
+    <script>
+        /* =========================================================================
+           1. GAME DATA & QUESTIONS SETUP (Year 5 Wildlife Vocab + Action Verbs)
+           ========================================================================= */
+        const QUIZ_DATA = [
+            {
+                id: 0,
+                animal: "Bear",
+                icon: "🐻",
+                color: 0x8B4513,
+                question: "Select the correct vocabulary and verb to complete the sentence:\n\n'The giant brown bear _______ fiercely through the forest while looking for fish to _______.'",
+                options: [
+                    { text: "lumbers / catch", correct: true },
+                    { text: "soars / hunt", correct: false },
+                    { text: "slithers / eat", correct: false },
+                    { text: "gallops / cook", correct: false }
+                ],
+                hint: "Bears move heavily (lumber) and grab wild fish (catch).",
+                explanation: "Correct! Bears 'lumber' (move heavily) and 'catch' fish in rivers!"
+            },
+            {
+                id: 1,
+                animal: "Lion",
+                icon: "🦁",
+                color: 0xD2691E,
+                question: "Choose the accurate terms for the King of the Jungle:\n\n'The pride of lions _______ loudly across the savanna to _______ their territory.'",
+                options: [
+                    { text: "whisper / build", correct: false },
+                    { text: "roars / defend", correct: true },
+                    { text: "chirps / protect", correct: false },
+                    { text: "barks / leave", correct: false }
+                ],
+                hint: "Lions make a deep sound (roar) to guard (defend) their land.",
+                explanation: "Great job! Lions 'roar' to communicate and 'defend' their territory!"
+            },
+            {
+                id: 2,
+                animal: "Giraffe",
+                icon: "🦒",
+                color: 0xE5A93C,
+                question: "Identify the verbs for the tallest land animal:\n\n'With its long neck, the tall giraffe _______ high foliage to _______ fresh leaves.'",
+                options: [
+                    { text: "dives / find", correct: false },
+                    { text: "burrows / dig", correct: false },
+                    { text: "reaches / munch", correct: true },
+                    { text: "crawls / swallow", correct: false }
+                ],
+                hint: "Giraffes extend upwards (reaches) to chew (munch) tree leaves.",
+                explanation: "Spot on! Giraffes 'reach' tall Acacia branches to 'munch' leaves!"
+            },
+            {
+                id: 3,
+                animal: "Cheetah",
+                icon: "🐆",
+                color: 0xF4A460,
+                question: "Select the proper verb phrase describing the fastest land predator:\n\n'The sleek cheetah _______ at high speeds across the grassland to _______ its prey.'",
+                options: [
+                    { text: "sprints / chase", correct: true },
+                    { text: "waddles / capture", correct: false },
+                    { text: "marches / watch", correct: false },
+                    { text: "flaps / stalk", correct: false }
+                ],
+                hint: "Cheetahs run extremely fast (sprint) when pursuing (chase) prey.",
+                explanation: "Excellent! Cheetahs 'sprint' up to 100 km/h to 'chase' fast prey!"
+            }
+        ];
+
+        let gameStats = {
+            attempts: [0, 0, 0, 0],
+            hintsUsed: 0,
+            selectedConfidence: 'Sure'
+        };
+
+        /* =========================================================================
+           2. THREE.JS ENGINE & GAME STATE VARIABLES
+           ========================================================================= */
+        let scene, camera, renderer;
+        let catGroup; 
+        let catTail;
+        let gates = [];
+        let trophyMesh;
+        let animatedAnimals = [];
+        let currentObjectiveIndex = 0;
+        let activeInteractGate = null;
+        let isGamePaused = true;
+        let clock;
+
+        const MAP = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+            [1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],
+            [1,0,1,0,0,0,0,2,1,0,0,0,1,0,1], // Gate 0 (Bear Zone)
+            [1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
+            [1,0,0,0,0,0,1,0,0,0,1,0,1,0,1],
+            [1,1,1,0,1,0,1,1,1,0,1,1,1,0,1],
+            [1,0,0,0,1,0,0,3,1,0,0,0,0,0,1], // Gate 1 (Lion Zone)
+            [1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
+            [1,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
+            [1,1,1,1,1,0,1,1,1,4,1,0,1,0,1], // Gate 2 (Giraffe Zone)
+            [1,0,0,0,1,0,0,0,1,0,1,0,0,0,1],
+            [1,0,1,0,1,1,1,0,1,0,1,1,1,5,1], // Gate 3 (Cheetah Zone)
+            [1,0,1,0,0,0,0,0,0,0,0,0,0,6,1], // Trophy Zone
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+        const CELL_SIZE = 4;
+        const collisionWalls = [];
+
+        // Player movement parameters
+        const player = {
+            pos: new THREE.Vector3(CELL_SIZE * 1.5, 0, CELL_SIZE * 1.5),
+            angle: 0,
+            targetAngle: 0,
+            moveSpeed: 0.18,
+            walkCycle: 0
+        };
+
+        // Key tracking state
+        const keys = { 
+            w: false, s: false, a: false, d: false, 
+            arrowup: false, arrowdown: false, arrowleft: false, arrowright: false 
+        };
+        const joystickState = { active: false, x: 0, y: 0 };
+        const dpadState = { up: false, down: false, left: false, right: false };
+
+        /* =========================================================================
+           3. INITIALIZATION & PROCEDURAL 3D GENERATION
+           ========================================================================= */
+        function initEngine() {
+            const canvas = document.getElementById('game-canvas');
+            renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a192f); // Deep Safari Night Blue
+            scene.fog = new THREE.FogExp2(0x0a192f, 0.018);
+
+            // Camera Setup
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            // Lighting Setup
+            const ambientLight = new THREE.AmbientLight(0xffedd5, 0.75);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xfff7ed, 0.95);
+            sunLight.position.set(25, 45, 25);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 120;
+            sunLight.shadow.camera.left = -40;
+            sunLight.shadow.camera.right = 40;
+            sunLight.shadow.camera.top = 40;
+            sunLight.shadow.camera.bottom = -40;
+            scene.add(sunLight);
+
+            // Build Forest Environment & Wildlife
+            buildMaze();
+            createMaineCoonCat();
+            spawnSanctuaryAnimals();
+
+            window.addEventListener('resize', onWindowResize);
+
+            // Universal Key Listeners (Fixed movement keys handling)
+            window.addEventListener('keydown', (e) => { 
+                const k = e.key.toLowerCase();
+                if (k === 'w' || k === 'arrowup' || e.code === 'KeyW' || e.code === 'ArrowUp') { keys.w = true; keys.arrowup = true; }
+                if (k === 's' || k === 'arrowdown' || e.code === 'KeyS' || e.code === 'ArrowDown') { keys.s = true; keys.arrowdown = true; }
+                if (k === 'a' || k === 'arrowleft' || e.code === 'KeyA' || e.code === 'ArrowLeft') { keys.a = true; keys.arrowleft = true; }
+                if (k === 'd' || k === 'arrowright' || e.code === 'KeyD' || e.code === 'ArrowRight') { keys.d = true; keys.arrowright = true; }
+
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+                    e.preventDefault(); // Prevent page scrolling on arrow keys / space
+                }
+
+                if ((k === 'e' || e.code === 'Space' || e.key === ' ') && activeInteractGate !== null && !isGamePaused) {
+                    triggerGateQuestion(activeInteractGate);
+                }
+            });
+
+            window.addEventListener('keyup', (e) => { 
+                const k = e.key.toLowerCase();
+                if (k === 'w' || k === 'arrowup' || e.code === 'KeyW' || e.code === 'ArrowUp') { keys.w = false; keys.arrowup = false; }
+                if (k === 's' || k === 'arrowdown' || e.code === 'KeyS' || e.code === 'ArrowDown') { keys.s = false; keys.arrowdown = false; }
+                if (k === 'a' || k === 'arrowleft' || e.code === 'KeyA' || e.code === 'ArrowLeft') { keys.a = false; keys.arrowleft = false; }
+                if (k === 'd' || k === 'arrowright' || e.code === 'KeyD' || e.code === 'ArrowRight') { keys.d = false; keys.arrowright = false; }
+            });
+
+            setupMobileControls();
+
+            clock = new THREE.Clock();
+            animate();
+        }
+
+        /* -------------------------------------------------------------------------
+           3D MAINE COON CAT MESH CREATION
+           ------------------------------------------------------------------------- */
+        function createMaineCoonCat() {
+            catGroup = new THREE.Group();
+
+            const furMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.6 }); 
+            const chestMat = new THREE.MeshStandardMaterial({ color: 0xfff7ed, roughness: 0.8 }); 
+            const eyeMat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.1 }); 
+            const noseMat = new THREE.MeshStandardMaterial({ color: 0xf43f5e });
+
+            // Main Body
+            const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.75, 1.35), furMat);
+            bodyMesh.position.y = 0.55;
+            bodyMesh.castShadow = true;
+            catGroup.add(bodyMesh);
+
+            // Fluffy Chest
+            const tuftMesh = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.45, 5), chestMat);
+            tuftMesh.rotation.x = -Math.PI / 4;
+            tuftMesh.position.set(0, 0.55, 0.68);
+            catGroup.add(tuftMesh);
+
+            // Head
+            const headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.6, 0.6), furMat);
+            headMesh.position.set(0, 0.9, 0.65);
+            headMesh.castShadow = true;
+            catGroup.add(headMesh);
+
+            // Lynx Ears
+            const earGeo = new THREE.ConeGeometry(0.16, 0.38, 4);
+            const leftEar = new THREE.Mesh(earGeo, furMat);
+            leftEar.position.set(-0.24, 1.28, 0.65);
+            leftEar.rotation.z = 0.15;
+            const rightEar = new THREE.Mesh(earGeo, furMat);
+            rightEar.position.set(0.24, 1.28, 0.65);
+            rightEar.rotation.z = -0.15;
+            catGroup.add(leftEar, rightEar);
+
+            // Eyes & Nose
+            const eyeGeo = new THREE.SphereGeometry(0.07, 8, 8);
+            const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+            leftEye.position.set(-0.19, 0.95, 0.94);
+            const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+            rightEye.position.set(0.19, 0.95, 0.94);
+            catGroup.add(leftEye, rightEye);
+
+            const nose = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.05, 0.05), noseMat);
+            nose.position.set(0, 0.86, 0.96);
+            catGroup.add(nose);
+
+            // Fluffy Tail
+            const tailGeo = new THREE.CylinderGeometry(0.14, 0.04, 1.1, 8);
+            catTail = new THREE.Mesh(tailGeo, furMat);
+            catTail.position.set(0, 0.75, -0.85);
+            catTail.rotation.x = THREE.MathUtils.degToRad(-40);
+            catGroup.add(catTail);
+
+            // 4 Legs
+            catGroup.legs = [];
+            const legGeo = new THREE.CylinderGeometry(0.11, 0.08, 0.55, 8);
+            const legPositions = [
+                [-0.32, 0.28, 0.45],  // FL
+                [0.32, 0.28, 0.45],   // FR
+                [-0.32, 0.28, -0.45], // BL
+                [0.32, 0.28, -0.45]   // BR
+            ];
+            legPositions.forEach(pos => {
+                const leg = new THREE.Mesh(legGeo, furMat);
+                leg.position.set(...pos);
+                leg.castShadow = true;
+                catGroup.add(leg);
+                catGroup.legs.push(leg);
+            });
+
+            catGroup.position.copy(player.pos);
+            scene.add(catGroup);
+        }
+
+        /* -------------------------------------------------------------------------
+           PROCEDURAL 3D ANIMATED WILDLIFE (Bear, Lion, Giraffe, Cheetah)
+           ------------------------------------------------------------------------- */
+        function spawnSanctuaryAnimals() {
+            // 1. BEAR (Near Gate 0 Zone)
+            const bearGroup = new THREE.Group();
+            const bearMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.8 });
+            const bearBody = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, 2.2), bearMat);
+            bearBody.position.y = 0.8;
+            const bearHead = new THREE.Mesh(new THREE.SphereGeometry(0.65, 8, 8), bearMat);
+            bearHead.position.set(0, 1.2, 1.2);
+            bearGroup.add(bearBody, bearHead);
+            bearGroup.position.set(CELL_SIZE * 1.5, 0, CELL_SIZE * 4.5);
+            scene.add(bearGroup);
+            animatedAnimals.push({ group: bearGroup, speed: 0.02, initialY: bearGroup.position.y, type: 'bear' });
+
+            // 2. LION (Near Gate 1 Zone)
+            const lionGroup = new THREE.Group();
+            const lionMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.5 });
+            const maneMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
+            const lionBody = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.0, 2.0), lionMat);
+            lionBody.position.y = 0.7;
+            const lionMane = new THREE.Mesh(new THREE.SphereGeometry(0.75, 8, 8), maneMat);
+            lionMane.position.set(0, 1.2, 1.0);
+            lionGroup.add(lionBody, lionMane);
+            lionGroup.position.set(CELL_SIZE * 5.5, 0, CELL_SIZE * 7.5);
+            scene.add(lionGroup);
+            animatedAnimals.push({ group: lionGroup, speed: 0.015, initialY: lionGroup.position.y, type: 'lion' });
+
+            // 3. GIRAFFE (Near Gate 2 Zone)
+            const giraffeGroup = new THREE.Group();
+            const giraffeMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.6 });
+            const gBody = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.8), giraffeMat);
+            gBody.position.y = 1.0;
+            const gNeck = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.35, 2.6, 8), giraffeMat);
+            gNeck.position.set(0, 2.5, 0.7);
+            const gHead = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.35, 0.7), giraffeMat);
+            gHead.position.set(0, 3.8, 0.9);
+            giraffeGroup.add(gBody, gNeck, gHead);
+            giraffeGroup.position.set(CELL_SIZE * 9.5, 0, CELL_SIZE * 10.5);
+            scene.add(giraffeGroup);
+            animatedAnimals.push({ group: giraffeGroup, speed: 0.01, initialY: giraffeGroup.position.y, type: 'giraffe' });
+
+            // 4. CHEETAH (Near Gate 3 Zone)
+            const cheetahGroup = new THREE.Group();
+            const cheetahMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.4 });
+            const cBody = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 1.7), cheetahMat);
+            cBody.position.y = 0.5;
+            const cHead = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 8), cheetahMat);
+            cHead.position.set(0, 0.8, 0.85);
+            cheetahGroup.add(cBody, cHead);
+            cheetahGroup.position.set(CELL_SIZE * 12.5, 0, CELL_SIZE * 12.5);
+            scene.add(cheetahGroup);
+            animatedAnimals.push({ group: cheetahGroup, speed: 0.03, initialY: cheetahGroup.position.y, type: 'cheetah' });
+        }
+
+        /* -------------------------------------------------------------------------
+           3D FOREST ENVIRONMENT & MAZE GENERATION
+           ------------------------------------------------------------------------- */
+        function buildMaze() {
+            // Forest Ground Terrain
+            const groundGeo = new THREE.PlaneGeometry(MAP[0].length * CELL_SIZE, MAP.length * CELL_SIZE);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.95 }); // Grass Green
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.set((MAP[0].length * CELL_SIZE)/2 - CELL_SIZE/2, 0, (MAP.length * CELL_SIZE)/2 - CELL_SIZE/2);
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            const treeTrunkMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 });
+            const treeLeavesMat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.6 });
+
+            for (let r = 0; r < MAP.length; r++) {
+                for (let c = 0; c < MAP[r].length; c++) {
+                    const cell = MAP[r][c];
+                    const x = c * CELL_SIZE;
+                    const z = r * CELL_SIZE;
+
+                    if (cell === 1) { // Pine Tree Wall Barrier
+                        const treeGroup = new THREE.Group();
+                        treeGroup.position.set(x, 0, z);
+
+                        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.55, 3.8, 8), treeTrunkMat);
+                        trunk.position.y = 1.9;
+                        trunk.castShadow = true;
+
+                        const foliage1 = new THREE.Mesh(new THREE.ConeGeometry(2.0, 3.2, 8), treeLeavesMat);
+                        foliage1.position.y = 4.2;
+                        foliage1.castShadow = true;
+
+                        const foliage2 = new THREE.Mesh(new THREE.ConeGeometry(1.5, 2.5, 8), treeLeavesMat);
+                        foliage2.position.y = 5.6;
+                        foliage2.castShadow = true;
+
+                        treeGroup.add(trunk, foliage1, foliage2);
+                        scene.add(treeGroup);
+
+                        collisionWalls.push(new THREE.Box3().setFromCenterAndSize(
+                            new THREE.Vector3(x, 2, z), 
+                            new THREE.Vector3(CELL_SIZE * 0.9, 4, CELL_SIZE * 0.9)
+                        ));
+                    } 
+                    else if (cell >= 2 && cell <= 5) { // Interactive Animal Gates
+                        createGate(x, z, cell - 2);
+                    }
+                    else if (cell === 6) { // Golden Trophy Goal
+                        createGoldenTrophy(x, z);
+                    }
+                }
+            }
+        }
+
+        /* Gate Mesh Creation */
+        function createGate(x, z, index) {
+            const gateGroup = new THREE.Group();
+            gateGroup.position.set(x, 0, z);
+
+            const qData = QUIZ_DATA[index];
+            const pillarMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5 });
+            
+            const leftPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 4.2, 8), pillarMat);
+            leftPillar.position.set(-CELL_SIZE/2 + 0.5, 2.1, 0);
+            leftPillar.castShadow = true;
+
+            const rightPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 4.2, 8), pillarMat);
+            rightPillar.position.set(CELL_SIZE/2 - 0.5, 2.1, 0);
+            rightPillar.castShadow = true;
+
+            const barMat = new THREE.MeshStandardMaterial({ color: qData.color, roughness: 0.3 });
+            const barrierBar = new THREE.Mesh(new THREE.BoxGeometry(CELL_SIZE - 0.8, 0.45, 0.25), barMat);
+            barrierBar.position.set(0, 2.0, 0);
+
+            const orb = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshBasicMaterial({ color: qData.color }));
+            orb.position.set(0, 3.4, 0);
+
+            gateGroup.add(leftPillar, rightPillar, barrierBar, orb);
+            scene.add(gateGroup);
+
+            const gateObj = {
+                index: index,
+                pos: new THREE.Vector3(x, 0, z),
+                barrierBar: barrierBar,
+                orb: orb,
+                unlocked: false,
+                box: new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(x, 1.5, z), new THREE.Vector3(CELL_SIZE, 3, 0.6))
+            };
+            gates.push(gateObj);
+            collisionWalls.push(gateObj.box);
+        }
+
+        /* 3D Golden Trophy Mesh */
+        function createGoldenTrophy(x, z) {
+            const trophyGroup = new THREE.Group();
+            trophyGroup.position.set(x, 0, z);
+
+            const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.2 });
+
+            const base = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.4, 1.4), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+            base.position.y = 0.2;
+            
+            const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.3, 0.9), goldMat);
+            stem.position.y = 0.85;
+
+            const bowl = new THREE.Mesh(new THREE.ConeGeometry(0.75, 1.0, 16), goldMat);
+            bowl.rotation.x = Math.PI;
+            bowl.position.y = 1.6;
+
+            const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.35), goldMat);
+            star.position.y = 2.4;
+            star.name = "trophyStar";
+
+            trophyGroup.add(base, stem, bowl, star);
+            trophyMesh = trophyGroup;
+            scene.add(trophyGroup);
+        }
+
+        /* =========================================================================
+           4. SMOOTH DIRECT 3D MOVEMENT ENGINE & ANIMATION
+           ========================================================================= */
+        function updatePlayerMovement() {
+            if (isGamePaused) return;
+
+            let moveX = 0; // Left (-1) / Right (+1)
+            let moveZ = 0; // Forward (-1) / Backward (+1)
+
+            // Keyboard input gathering
+            if (keys.w || keys.arrowup || dpadState.up) moveZ -= 1;
+            if (keys.s || keys.arrowdown || dpadState.down) moveZ += 1;
+            if (keys.a || keys.arrowleft || dpadState.left) moveX -= 1;
+            if (keys.d || keys.arrowright || dpadState.right) moveX += 1;
+
+            // Touch Joystick Input Override
+            if (joystickState.active) {
+                moveX = joystickState.x;
+                moveZ = joystickState.y;
+            }
+
+            const inputLength = Math.hypot(moveX, moveZ);
+            const isMoving = inputLength > 0.05;
+
+            if (isMoving) {
+                // Normalize directional vector
+                const dirX = moveX / (inputLength > 1 ? inputLength : 1);
+                const dirZ = moveZ / (inputLength > 1 ? inputLength : 1);
+
+                const stepX = dirX * player.moveSpeed;
+                const stepZ = dirZ * player.moveSpeed;
+
+                const playerRadius = 0.35; // Slightly reduced collision radius to prevent stuck state
+
+                // 1. Independent X-axis collision & slide
+                const nextPosX = player.pos.clone().add(new THREE.Vector3(stepX, 0, 0));
+                let canMoveX = true;
+                for (let wall of collisionWalls) {
+                    const closest = new THREE.Vector3();
+                    wall.clampPoint(nextPosX, closest);
+                    if (nextPosX.distanceTo(closest) < playerRadius) {
+                        canMoveX = false;
+                        break;
+                    }
+                }
+                if (canMoveX) player.pos.x = nextPosX.x;
+
+                // 2. Independent Z-axis collision & slide
+                const nextPosZ = player.pos.clone().add(new THREE.Vector3(0, 0, stepZ));
+                let canMoveZ = true;
+                for (let wall of collisionWalls) {
+                    const closest = new THREE.Vector3();
+                    wall.clampPoint(nextPosZ, closest);
+                    if (nextPosZ.distanceTo(closest) < playerRadius) {
+                        canMoveZ = false;
+                        break;
+                    }
+                }
+                if (canMoveZ) player.pos.z = nextPosZ.z;
+
+                catGroup.position.copy(player.pos);
+
+                // Target rotation facing moving direction
+                player.targetAngle = Math.atan2(dirX, dirZ);
+
+                // Walking gait leg animation
+                player.walkCycle += 0.24;
+                if (catGroup.legs) {
+                    catGroup.legs[0].rotation.x = Math.sin(player.walkCycle) * 0.65;
+                    catGroup.legs[1].rotation.x = -Math.sin(player.walkCycle) * 0.65;
+                    catGroup.legs[2].rotation.x = -Math.sin(player.walkCycle) * 0.65;
+                    catGroup.legs[3].rotation.x = Math.sin(player.walkCycle) * 0.65;
+                }
+
+                if (catTail) {
+                    catTail.rotation.z = Math.sin(player.walkCycle * 0.8) * 0.4;
+                }
+            } else {
+                // Smooth idle standing posture
+                if (catGroup.legs) {
+                    catGroup.legs.forEach(leg => leg.rotation.x *= 0.7);
+                }
+            }
+
+            // Smooth Interpolated Turning
+            let deltaAngle = player.targetAngle - player.angle;
+            while (deltaAngle < -Math.PI) deltaAngle += Math.PI * 2;
+            while (deltaAngle > Math.PI) deltaAngle -= Math.PI * 2;
+            player.angle += deltaAngle * 0.3;
+            catGroup.rotation.y = player.angle;
+
+            // Smooth Camera Follow
+            const targetCamPos = player.pos.clone().add(new THREE.Vector3(0, 6.0, 6.5));
+            camera.position.lerp(targetCamPos, 0.15);
+            camera.lookAt(player.pos.clone().add(new THREE.Vector3(0, 0.8, 0)));
+
+            // Idle animation for wildlife
+            animatedAnimals.forEach(anim => {
+                anim.group.rotation.y += anim.speed;
+                anim.group.position.y = anim.initialY + Math.sin(clock.getElapsedTime() * 2) * 0.08;
+            });
+
+            checkInteractions();
+        }
+
+        /* Check Proximity to Gates & Objectives */
+        function checkInteractions() {
+            let nearAnyGate = false;
+            activeInteractGate = null;
+
+            gates.forEach(gate => {
+                if (!gate.unlocked) {
+                    if (player.pos.distanceTo(gate.pos) < 2.6) {
+                        nearAnyGate = true;
+                        activeInteractGate = gate;
+                    }
+                }
+            });
+
+            const promptEl = document.getElementById('interact-prompt');
+            if (nearAnyGate) {
+                promptEl.classList.remove('hidden');
+            } else {
+                promptEl.classList.add('hidden');
+            }
+
+            if (currentObjectiveIndex === 4 && trophyMesh) {
+                if (player.pos.distanceTo(trophyMesh.position) < 2.0) {
+                    triggerVictory();
+                }
+            }
+        }
+
+        /* =========================================================================
+           5. QUESTION & INTERACTION SYSTEM
+           ========================================================================= */
+        function triggerGateQuestion(gateObj) {
+            isGamePaused = true;
+            const data = QUIZ_DATA[gateObj.index];
+
+            document.getElementById('modal-animal-icon').innerText = data.icon;
+            document.getElementById('modal-animal-title').innerText = `${data.animal} Sanctuary Gate`;
+            document.getElementById('question-text').innerText = data.question;
+
+            const optsContainer = document.getElementById('options-container');
+            optsContainer.innerHTML = '';
+
+            data.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-3.5 bg-slate-800 hover:bg-slate-700 active:bg-amber-500 active:text-slate-950 rounded-xl text-sm font-medium transition flex items-center justify-between border border-slate-700";
+                btn.innerHTML = `<span><strong class="text-amber-400 mr-2">${String.fromCharCode(65 + idx)}.</strong> ${opt.text}</span>`;
+                btn.onclick = () => handleAnswerSubmission(gateObj, opt.correct);
+                optsContainer.appendChild(btn);
+            });
+
+            const hintBtn = document.getElementById('hint-btn');
+            const hintText = document.getElementById('hint-text');
+            hintText.innerText = data.hint;
+            hintText.classList.add('hidden');
+            hintBtn.onclick = () => {
+                hintText.classList.remove('hidden');
+                gameStats.hintsUsed++;
+            };
+
+            document.getElementById('question-modal').classList.remove('hidden');
+        }
+
+        function setConfidence(level, btnElement) {
+            gameStats.selectedConfidence = level;
+            document.querySelectorAll('#confidence-group .conf-btn').forEach(btn => {
+                btn.className = "conf-btn py-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs text-slate-300 font-semibold border border-slate-700";
+            });
+            btnElement.className = "conf-btn py-1.5 bg-amber-500 text-slate-950 hover:bg-amber-400 rounded-xl text-xs font-semibold border border-amber-500";
+        }
+
+        function handleAnswerSubmission(gateObj, isCorrect) {
+            document.getElementById('question-modal').classList.add('hidden');
+            gameStats.attempts[gateObj.index]++;
+
+            const fbModal = document.getElementById('feedback-modal');
+            const fbIcon = document.getElementById('feedback-icon');
+            const fbTitle = document.getElementById('feedback-title');
+            const fbBody = document.getElementById('feedback-body');
+            const fbBtn = document.getElementById('feedback-close-btn');
+
+            const data = QUIZ_DATA[gateObj.index];
+
+            if (isCorrect) {
+                fbIcon.innerText = "🌟";
+                fbTitle.innerText = "Correct! Gate Unlocked!";
+                fbTitle.className = "text-2xl font-bold mb-2 text-emerald-400";
+                fbBody.innerText = data.explanation;
+
+                gateObj.unlocked = true;
+                gateObj.barrierBar.position.y = 5.2; 
+                gateObj.orb.material.color.setHex(0x10b981); 
+
+                const wallIdx = collisionWalls.indexOf(gateObj.box);
+                if (wallIdx > -1) collisionWalls.splice(wallIdx, 1);
+
+                const badge = document.getElementById(`badge-${gateObj.index}`);
+                badge.className = "px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-bold border border-emerald-500/40";
+                badge.innerText += " ✓";
+
+                currentObjectiveIndex++;
+                updateObjectiveText();
+
+                fbBtn.onclick = () => {
+                    fbModal.classList.add('hidden');
+                    isGamePaused = false;
+                };
+            } else {
+                fbIcon.innerText = "❌";
+                fbTitle.innerText = "Not Quite Right!";
+                fbTitle.className = "text-2xl font-bold mb-2 text-rose-400";
+                fbBody.innerText = "Read the vocabulary & verb options carefully and try again!";
+
+                fbBtn.onclick = () => {
+                    fbModal.classList.add('hidden');
+                    isGamePaused = false;
+                };
+            }
+
+            fbModal.classList.remove('hidden');
+        }
+
+        function updateObjectiveText() {
+            const objText = document.getElementById('objective-text');
+            if (currentObjectiveIndex < QUIZ_DATA.length) {
+                const nextAnimal = QUIZ_DATA[currentObjectiveIndex].animal;
+                objText.innerText = `Find Gate ${currentObjectiveIndex + 1}: ${nextAnimal} Zone`;
+            } else {
+                objText.innerText = "ALL GATES UNLOCKED! Head to the Golden Trophy! 🏆";
+                objText.className = "font-bold text-yellow-400 animate-pulse";
+            }
+        }
+
+        function triggerVictory() {
+            isGamePaused = true;
+            const firstTryCount = gameStats.attempts.filter(a => a === 1).length;
+            const accuracyPercent = Math.round((firstTryCount / 4) * 100);
+
+            document.getElementById('stat-accuracy').innerText = `${accuracyPercent}%`;
+            document.getElementById('stat-hints').innerText = gameStats.hintsUsed;
+
+            document.getElementById('victory-modal').classList.remove('hidden');
+        }
+
+        /* =========================================================================
+           6. MOBILE TOUCH & TOUCH JOYSTICK CONTROLS
+           ========================================================================= */
+        function setupMobileControls() {
+            const joystickZone = document.getElementById('joystick-zone');
+            const joystickKnob = document.getElementById('joystick-knob');
+            const actionBtn = document.getElementById('action-btn-mobile');
+
+            let touchId = null;
+            let startX = 0, startY = 0;
+
+            joystickZone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.changedTouches[0];
+                touchId = touch.identifier;
+                startX = touch.clientX;
+                startY = touch.clientY;
+                joystickState.active = true;
+            }, { passive: false });
+
+            window.addEventListener('touchmove', (e) => {
+                if (!joystickState.active) return;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const touch = e.changedTouches[i];
+                    if (touch.identifier === touchId) {
+                        const dx = touch.clientX - startX;
+                        const dy = touch.clientY - startY;
+                        const dist = Math.min(Math.hypot(dx, dy), 40);
+                        const angle = Math.atan2(dy, dx);
+
+                        const knobX = Math.cos(angle) * dist;
+                        const knobY = Math.sin(angle) * dist;
+
+                        joystickKnob.style.transform = `translate(${knobX}px, ${knobY}px)`;
+
+                        joystickState.x = knobX / 40;
+                        joystickState.y = knobY / 40;
+                    }
+                }
+            }, { passive: false });
+
+            const resetJoystick = (e) => {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === touchId) {
+                        joystickState.active = false;
+                        joystickState.x = 0;
+                        joystickState.y = 0;
+                        joystickKnob.style.transform = `translate(0px, 0px)`;
+                        touchId = null;
+                    }
+                }
+            };
+
+            window.addEventListener('touchend', resetJoystick);
+            window.addEventListener('touchcancel', resetJoystick);
+
+            const bindDpad = (btnId, keyName) => {
+                const btn = document.getElementById(btnId);
+                if (!btn) return;
+                btn.addEventListener('touchstart', (e) => { e.preventDefault(); dpadState[keyName] = true; });
+                btn.addEventListener('touchend', (e) => { e.preventDefault(); dpadState[keyName] = false; });
+                btn.addEventListener('touchcancel', (e) => { e.preventDefault(); dpadState[keyName] = false; });
+            };
+
+            bindDpad('dpad-up', 'up');
+            bindDpad('dpad-down', 'down');
+            bindDpad('dpad-left', 'left');
+            bindDpad('dpad-right', 'right');
+
+            actionBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (activeInteractGate !== null && !isGamePaused) {
+                    triggerGateQuestion(activeInteractGate);
+                }
+            });
+            actionBtn.addEventListener('click', () => {
+                if (activeInteractGate !== null && !isGamePaused) {
+                    triggerGateQuestion(activeInteractGate);
+                }
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            updatePlayerMovement();
+
+            if (trophyMesh) {
+                const star = trophyMesh.getObjectByName("trophyStar");
+                if (star) star.rotation.y += 0.025;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = () => {
+            initEngine();
+
+            document.getElementById('start-btn').addEventListener('click', () => {
+                document.getElementById('start-screen').classList.add('hidden');
+                isGamePaused = false;
+            });
+        };
+    </script>
+</body>
+</html>
